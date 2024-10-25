@@ -9,7 +9,7 @@ Windows终端下，将网易云音乐下载的NCM加密文件转化为MP3/Flac�
 1. 下载本项目
 
    ```bash
-   git clone git@github.com:luchao2424631502/ncm2dump.git
+   git clone git@github.com:luchao2424631502/ncmdump_windows.git
    ```
 
 2. 编译
@@ -58,8 +58,6 @@ Options:
         -o <file>            place out file in <file>
 ```
 
-2. 或者自己将得到二进制加入bin目录，更新PATH，长期使用。
-
 # 3-rd LIB使用
 
 * [cJSON库](https://github.com/DaveGamble/cJSON/tree/master)
@@ -76,5 +74,3 @@ Options:
 # 注
 
 方便在windows上用网易云下歌后直接批量转换格式。
-
->>>>>>> bf248a6 (v1)
