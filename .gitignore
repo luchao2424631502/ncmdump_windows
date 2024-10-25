@@ -1,0 +1,6 @@
+*.ncm
+*.flac
+*.mp3
+*.exe
+scripts/
+lib/
