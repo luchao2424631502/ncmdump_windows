@@ -11,6 +11,7 @@ typedef struct
 	char **file_name;
 	int left;
 	int right;
+	int delete_source;  // 是否删除原 ncm 文件
 } ThreadArgs;
 
 void *thread_function(void *arg)
@@ -30,7 +31,7 @@ void *thread_function(void *arg)
 	int success_count = 0;
 	for (int i = left; i < right; i++)
 	{
-		int ret = work_convert_windows(file_name[i]);
+		int ret = work_convert_windows(file_name[i], args->delete_source);
 		if (ret == 0)
 			success_count++;
 	}
@@ -46,8 +47,9 @@ int main(size_t argc, char *argv[])
 	// opterr = 0;
 	int option, is_dir = 0;
 	int thread_nums = 1; // 默认单线程
+	int delete_source = 0; // 是否删除原 ncm 文件
 	char *work_dir = NULL;
-	while ((option = getopt(argc, argv, "o:hd:j:")) != -1)
+	while ((option = getopt(argc, argv, "o:hd:j:x")) != -1)
 	{
 		switch (option)
 		{
@@ -58,12 +60,14 @@ int main(size_t argc, char *argv[])
 				   "\tncm2dump test.ncm\n"
 				   "\tncm2dump test1.ncm test2.ncm test3.ncm\n"
 				   "\tncm2dump -d ./download/\n"
-				   "\tncm2dump -j 6 -d ./download/\n\n"
+				   "\tncm2dump -j 6 -d ./download/\n"
+				   "\tncm2dump -x test.ncm\n\n"
 				   "Options:\n"
 				   "\t-h                   display HELP and EXIT\n"
 				   "\t-j [N]               start N threads to convert\n"
 				   "\t-d <Directory>       batch convert ncm in a specified <directory>\n"
 				   "\t-o <file>            place out file in <file>\n"
+				   "\t-x                   delete source ncm file after conversion\n"
 				   "",
 				   argv[0]);
 			goto END;
@@ -80,6 +84,9 @@ int main(size_t argc, char *argv[])
 		case 'j':
 			thread_nums = atoi(optarg);
 			// printf("arg is %d\n", thread_nums);
+			break;
+		case 'x':
+			delete_source = 1;
 			break;
 		default: // 选项和参数不规范直接exit
 			goto END;
@@ -186,6 +193,7 @@ int main(size_t argc, char *argv[])
 		args[i].file_name = file_name;
 		args[i].left = left;
 		args[i].right = right;
+		args[i].delete_source = delete_source;
 
 		if (pthread_create(&threads[i], NULL, thread_function, &args[i]) != 0) {
 			perror("Failed to create thread");

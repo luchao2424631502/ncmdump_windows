@@ -52,8 +52,8 @@
 typedef unsigned char uint8_t;
 typedef unsigned int uint32_t; 
 
-int work_convert_linux(char *input_path);
-int work_convert_windows(char *input_path);
+int work_convert_linux(char *input_path, int delete_source);
+int work_convert_windows(char *input_path, int delete_source);
 uint8_t *dump(uint8_t *filedata, size_t filesize, 
 		uint32_t *music_file_size, char **filename);
 uint8_t *cut_first(uint8_t *data, uint32_t len, uint32_t cut_num);

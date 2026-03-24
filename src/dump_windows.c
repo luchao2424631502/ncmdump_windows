@@ -1,4 +1,5 @@
 #include "dump.h"
+#include <windows.h>
 
 static uint8_t core_key[0x10] = {
 	0x68, 0x7A, 0x48, 0x52,
@@ -18,6 +19,27 @@ static uint8_t header_valid[] = {
        	0x43, 0x54, 0x45, 0x4e,
        	0x46, 0x44, 0x41, 0x4d
 };
+
+// UTF-8 字符串转宽字符（用于 Windows 文件名）
+wchar_t *utf8_to_wide(const char *utf8_str)
+{
+	if (!utf8_str) return NULL;
+	
+	// 计算需要的缓冲区大小
+	int needed = MultiByteToWideChar(CP_UTF8, 0, utf8_str, -1, NULL, 0);
+	if (needed == 0) return NULL;
+	
+	wchar_t *wide_str = (wchar_t *)malloc(needed * sizeof(wchar_t));
+	if (!wide_str) return NULL;
+	
+	// 进行实际转换
+	if (MultiByteToWideChar(CP_UTF8, 0, utf8_str, -1, wide_str, needed) == 0) {
+		free(wide_str);
+		return NULL;
+	}
+	
+	return wide_str;
+}
 
 uint8_t *pkcs7_unpad(uint8_t *data, uint32_t *len_addr)
 {
@@ -207,7 +229,7 @@ header_error:
 }
 
 #ifndef _WIN32
-int work_convert_linux(char *input_path)
+int work_convert_linux(char *input_path, int delete_source)
 {
 	int fd = open(input_path, O_RDWR | O_CREAT);
 	if (-1 == fd)
@@ -253,11 +275,20 @@ int work_convert_linux(char *input_path)
 	// 释放文件数据非常重要(否则内存占用的很严重)
 	free(decode_file_data);
 	free(filename);
+
+	// 如果指定了 -x 选项，删除原 ncm 文件
+	if (delete_source) {
+		if (unlink(input_path) == -1) {
+			ps("Failed to delete source file\n");
+		}
+	}
+
+	return 0;
 }
 
 #else
 
-int work_convert_windows(char *input_path)
+int work_convert_windows(char *input_path, int delete_source)
 {
 	HANDLE file = CreateFileA(input_path, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (file == INVALID_HANDLE_VALUE) {
@@ -292,8 +323,18 @@ int work_convert_windows(char *input_path)
 	}
 
 	// 生成转换文件
-    HANDLE outFile = CreateFileA(
-        filename, 
+	wchar_t *wide_filename = utf8_to_wide(filename);
+	if (!wide_filename) {
+		ps("Failed to convert filename to wide character!");
+		UnmapViewOfFile(filedata);
+		CloseHandle(file);
+		free(decode_file_data);
+		free(filename);
+		return -1;
+	}
+
+    HANDLE outFile = CreateFileW(
+        wide_filename, 
         GENERIC_WRITE, 
         0, 
         NULL, 
@@ -303,6 +344,7 @@ int work_convert_windows(char *input_path)
     );
     if (outFile == INVALID_HANDLE_VALUE) {
         ps("outfd ERROR!");
+        free(wide_filename);
         UnmapViewOfFile(filedata);
         CloseHandle(file);
         free(decode_file_data);
@@ -317,6 +359,7 @@ int work_convert_windows(char *input_path)
         uint32_t to_write = music_file_size - tmp_offset;
         if (!WriteFile(outFile, decode_file_data + tmp_offset, to_write, &written, NULL)) {
             ps("WriteFile ERROR!");
+            free(wide_filename);
             CloseHandle(outFile);
             UnmapViewOfFile(filedata);
             CloseHandle(file);
@@ -332,7 +375,15 @@ int work_convert_windows(char *input_path)
     UnmapViewOfFile(filedata);
     CloseHandle(file);
 
+    // 如果指定了 -x 选项，删除原 ncm 文件
+    if (delete_source) {
+        if (remove(input_path) != 0) {
+            ps("Failed to delete source file\n");
+        }
+    }
+
     // 释放内存
+    free(wide_filename);
     free(decode_file_data);
     free(filename);
 	return 0;
