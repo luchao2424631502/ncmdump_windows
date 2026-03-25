@@ -1,0 +1,8 @@
+#include <windows.h>
+
+// 简单的资源定义
+STRINGTABLE
+BEGIN
+    1, "NCM 文件转换工具"
+    2, "v1.0"
+END

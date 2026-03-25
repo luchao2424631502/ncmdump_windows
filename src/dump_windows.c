@@ -388,4 +388,99 @@ int work_convert_windows(char *input_path, int delete_source)
     free(filename);
 	return 0;
 }
+
+// 新增函数：支持指定输出目录的转换
+int work_convert_windows_with_output(char *input_path, char *output_path, int delete_source)
+{
+	HANDLE file = CreateFileA(input_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (file == INVALID_HANDLE_VALUE) {
+		return -1;
+	}
+
+	LARGE_INTEGER filesize;
+	if (!GetFileSizeEx(file, &filesize)) {
+		CloseHandle(file);
+		return -1;
+	}
+
+	HANDLE fileMapping = CreateFileMapping(file, NULL, PAGE_READONLY, 0, 0, NULL);
+	void *filedata = MapViewOfFile(fileMapping, FILE_MAP_READ, 0, 0, 0);
+	if (filedata == NULL) {
+		CloseHandle(fileMapping);
+		CloseHandle(file);
+		return -1;
+	}
+
+	CloseHandle(fileMapping);
+
+	uint32_t music_file_size = 0;
+	char *filename = NULL;
+	uint8_t *decode_file_data = dump(filedata, filesize.QuadPart, &music_file_size, &filename);
+	if (!decode_file_data) {
+		UnmapViewOfFile(filedata);
+		CloseHandle(file);
+		return -1;
+	}
+
+	// 转换输出路径为宽字符
+	wchar_t *wide_output_path = utf8_to_wide(output_path);
+	if (!wide_output_path) {
+		UnmapViewOfFile(filedata);
+		CloseHandle(file);
+		free(decode_file_data);
+		free(filename);
+		return -1;
+	}
+
+    HANDLE outFile = CreateFileW(
+        wide_output_path, 
+        GENERIC_WRITE, 
+        0, 
+        NULL, 
+        CREATE_ALWAYS, 
+        FILE_ATTRIBUTE_NORMAL, 
+        NULL
+    );
+    if (outFile == INVALID_HANDLE_VALUE) {
+        free(wide_output_path);
+        UnmapViewOfFile(filedata);
+        CloseHandle(file);
+        free(decode_file_data);
+        free(filename);
+        return -1;
+    }
+
+    // 写入输出文件
+    DWORD written = 0;
+    uint32_t tmp_offset = 0;
+    while (tmp_offset < music_file_size) {
+        uint32_t to_write = music_file_size - tmp_offset;
+        if (!WriteFile(outFile, decode_file_data + tmp_offset, to_write, &written, NULL)) {
+            free(wide_output_path);
+            CloseHandle(outFile);
+            UnmapViewOfFile(filedata);
+            CloseHandle(file);
+            free(decode_file_data);
+            free(filename);
+            return -1;
+        }
+        tmp_offset += written;
+    }
+
+    // 关闭文件句柄和解除映射
+    CloseHandle(outFile);
+    UnmapViewOfFile(filedata);
+    CloseHandle(file);
+
+    // 如果指定了删除源文件
+    if (delete_source) {
+        remove(input_path);
+    }
+
+    // 释放内存
+    free(wide_output_path);
+    free(decode_file_data);
+    free(filename);
+	return 0;
+}
 #endif
