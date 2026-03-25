@@ -28,4 +28,4 @@ $(GUI_TARGET): gui/resource.o
 	$(CC) -o $(GUI_TARGET) $(INCLUDE) -O2 -mwindows $(GUI_SRC) $(LIBS) -lpthread
 
 clean:
-	rm -rf $(GUI_TARGET) $(CLI_TARGET)
+	rm -rf $(GUI_TARGET) $(CLI_TARGET) gui/resource.o

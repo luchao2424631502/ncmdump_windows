@@ -2,5 +2,7 @@
 *.flac
 *.mp3
 *.exe
+*.o
+nul
 scripts/
 lib/
